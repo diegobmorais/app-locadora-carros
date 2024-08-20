@@ -12,4 +12,18 @@ class Marca extends Model
         'nome',
         'imagem',
     ];
+    static function rules()
+    {
+        return [
+            'nome' => 'required|unique:marcas',
+            'imagem' => 'required' // acrescentar (file|mimes:png,jpge)
+        ];
+    }
+    static function feedback()
+    {
+        return [
+            'required' => 'O campo :attribute é obrigatório',
+            'nome.unique' => 'O nome da marca já existe'
+        ];
+    }
 }
