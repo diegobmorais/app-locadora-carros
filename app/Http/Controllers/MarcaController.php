@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Marca;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class MarcaController extends Controller
 {
@@ -34,7 +35,7 @@ class MarcaController extends Controller
 
         $imagem = $request->file('imagem');
         $imagem_urn = $imagem->store('imagens', 'public');
-       
+
         $marca = Marca::create([
             'nome' => $request->nome,
             'imagem' => $imagem_urn,
@@ -70,6 +71,7 @@ class MarcaController extends Controller
     {
         try {
             $marca = Marca::findOrFail($id);
+
             if ($request->method() === 'PATCH') {
                 $regrasDinamicas = array();
                 foreach (Marca::rules() as $input => $rule) {
@@ -81,7 +83,18 @@ class MarcaController extends Controller
             } else {
                 $request->validate(Marca::rules(), Marca::feedback());
             }
-            $marca->update($request->all());
+            //remove imagem antiga apos atualização
+            if ($request->file('imagem')) {
+                Storage::disk('public')->delete($marca->imagem);
+            }
+            $imagem = $request->file('imagem');
+            $imagem_urn = $imagem->store('imagens', 'public');
+
+            $marca->update([
+                'nome' => $request->nome,
+                'imagem' => $imagem_urn,
+            ]);
+
             return response()->json($marca, 201);
         } catch (ModelNotFoundException $e) {
             return response()->json(['erro' => 'marca não existe'], 404);
@@ -91,10 +104,13 @@ class MarcaController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy($id)
+    public function destroy($id, Request $request)
     {
         try {
             $marca = Marca::findOrFail($id);
+            if ($request->file('imagem')) {
+                Storage::disk('public')->delete($marca->imagem);
+            }
             $marca->delete();
             return ['mensagem' => 'A marca foi removida com sucesso'];
         } catch (ModelNotFoundException $e) {
