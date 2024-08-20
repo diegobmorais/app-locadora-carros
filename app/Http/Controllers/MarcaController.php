@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Marca;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 
 class MarcaController extends Controller
@@ -12,7 +13,8 @@ class MarcaController extends Controller
      */
     public function index()
     {
-        //
+        $marca = Marca::all();
+        return $marca;
     }
 
     /**
@@ -28,15 +30,29 @@ class MarcaController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $request->validate(Marca::rules(), Marca::feedback());
+
+        $imagem = $request->file('imagem');
+        $imagem_urn = $imagem->store('imagens', 'public');
+       
+        $marca = Marca::create([
+            'nome' => $request->nome,
+            'imagem' => $imagem_urn,
+        ]);
+        return response()->json($marca, 201);
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(Marca $marca)
+    public function show($id)
     {
-        //
+        try {
+            $marca = Marca::findOrFail($id);
+            return $marca;
+        } catch (ModelNotFoundException $e) {
+            return response()->json(['erro' => 'marca não existe'], 404);
+        }
     }
 
     /**
@@ -50,16 +66,39 @@ class MarcaController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Marca $marca)
+    public function update(Request $request, $id)
     {
-        //
+        try {
+            $marca = Marca::findOrFail($id);
+            if ($request->method() === 'PATCH') {
+                $regrasDinamicas = array();
+                foreach (Marca::rules() as $input => $rule) {
+                    if (array_key_exists($input, $request->all())) {
+                        $regrasDinamicas[$input] = $rule;
+                    }
+                }
+                $request->validate($regrasDinamicas, Marca::feedback());
+            } else {
+                $request->validate(Marca::rules(), Marca::feedback());
+            }
+            $marca->update($request->all());
+            return response()->json($marca, 201);
+        } catch (ModelNotFoundException $e) {
+            return response()->json(['erro' => 'marca não existe'], 404);
+        }
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Marca $marca)
+    public function destroy($id)
     {
-        //
+        try {
+            $marca = Marca::findOrFail($id);
+            $marca->delete();
+            return ['mensagem' => 'A marca foi removida com sucesso'];
+        } catch (ModelNotFoundException $e) {
+            return response()->json(['erro' => 'marca não existe'], 404);
+        }
     }
 }
