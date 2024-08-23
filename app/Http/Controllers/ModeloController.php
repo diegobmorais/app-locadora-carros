@@ -3,19 +3,32 @@
 namespace App\Http\Controllers;
 
 use App\Models\Modelo;
+use App\Repositories\ModeloRepository;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class ModeloController extends Controller
-{
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+{  
+    public function index(Request $request)
     {
-        $modelo = Modelo::all();
-        return $modelo;
+        $modeloRepository = new ModeloRepository(Modelo::getModel());
+
+        if ($request->has('atributos_marca')) {
+            $atributos_marca = 'marca:id,'. $request->atributos_marca;
+            //dd($atributos_marca);                   
+            $modeloRepository->selectRegistrosRelacionados($atributos_marca);
+        } else {
+            $modeloRepository->selectRegistrosRelacionados('marca');
+        }
+        if ($request->has('filtro')) {
+            $modeloRepository->filtro($request->filtro);
+        }
+        if ($request->has('atributos')) {                             
+            $modeloRepository->selectAtributos($request->atributos);
+        }
+        
+        return response()->json($modeloRepository->getResultado(), 200);
     }
 
     /**
@@ -52,9 +65,9 @@ class ModeloController extends Controller
      * Display the specified resource.
      */
     public function show($id)
-    {
+    {   
         try {
-            $modelo = Modelo::findOrFail($id);
+            $modelo = Modelo::with('marca')->findOrFail($id);            
             return $modelo;
         } catch (ModelNotFoundException $e) {
             return response()->json(['erro' => 'modelo não existe'], 404);
@@ -88,22 +101,16 @@ class ModeloController extends Controller
             } else {
                 $request->validate(Modelo::rules());
             }
-            //remove imagem antiga apos atualização
+            //remove imagem antiga do storage
             if ($request->file('imagem')) {
                 Storage::disk('public')->delete($modelo->imagem);
             }
             $imagem = $request->file('imagem');
             $imagem_urn = $imagem->store('imagens', 'public');
 
-            $modelo->update([
-                'marca_id' => $request->marca_id,
-                'nome' => $request->nome,
-                'imagem' => $imagem_urn,
-                'numero_portas' => $request->numero_portas,
-                'lugares' => $request->lugares,
-                'air_bag' => $request->air_bag,
-                'abs' => $request->abs,
-            ]);
+            $modelo->fill($request->all());          
+            $modelo->imagem = $imagem_urn;
+            $modelo->save();
 
             return response()->json($modelo, 201);
         } catch (ModelNotFoundException $e) {
