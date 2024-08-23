@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Marca;
+use App\Repositories\MarcaRepository;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -12,10 +13,24 @@ class MarcaController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $marca = Marca::all();
-        return $marca;
+        $marcaRepository = new MarcaRepository(Marca::getModel());
+
+        if ($request->has('atributos_modelos')) {
+            $atributos_modelos = 'modelos:' . $request->atributos_modelos;            
+            $marcaRepository->selectRegistrosRelacionados($atributos_modelos);
+        } else {
+            $marcaRepository->selectRegistrosRelacionados('modelos');
+        }
+        if ($request->has('filtro')) {
+            $marcaRepository->filtro($request->filtro);
+        }
+        if ($request->has('atributos')) {            
+            $marcaRepository->selectAtributos($request->atributos);
+        }
+        
+        return response()->json($marcaRepository->getResultado(), 200);
     }
 
     /**
@@ -49,7 +64,7 @@ class MarcaController extends Controller
     public function show($id)
     {
         try {
-            $marca = Marca::findOrFail($id);
+            $marca = Marca::with('modelos')->findOrFail($id);
             return $marca;
         } catch (ModelNotFoundException $e) {
             return response()->json(['erro' => 'marca não existe'], 404);
@@ -90,10 +105,9 @@ class MarcaController extends Controller
             $imagem = $request->file('imagem');
             $imagem_urn = $imagem->store('imagens', 'public');
 
-            $marca->update([
-                'nome' => $request->nome,
-                'imagem' => $imagem_urn,
-            ]);
+            $marca->fill($request->all());
+            $marca->imagem = $imagem_urn;
+            $marca->save();
 
             return response()->json($marca, 201);
         } catch (ModelNotFoundException $e) {

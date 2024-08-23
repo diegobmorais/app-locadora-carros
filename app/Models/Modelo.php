@@ -24,4 +24,8 @@ class Modelo extends Model
             'imagem' => 'required' // acrescentar (file|mimes:png,jpge)
         ];
     }
+    public function marca()
+    {
+        return $this->belongsTo(Marca::class, 'marca_id');
+    }
 }
